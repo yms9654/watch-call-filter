@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">연락처 전용</string>
+    <string name="toggle_enabled">차단 켜짐</string>
+    <string name="toggle_disabled">차단 꺼짐</string>
+    <string name="block_private">비공개 번호 차단</string>
+    <string name="grant_role">통화 선별 권한 부여</string>
+    <string name="grant_contacts">연락처 권한 허용</string>
+    <string name="status_ready">준비됨</string>
+    <string name="status_need_role">통화 선별 역할 필요</string>
+    <string name="status_need_contacts">연락처 권한 필요</string>
+</resources>
