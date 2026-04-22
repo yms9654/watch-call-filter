@@ -12,6 +12,13 @@ class PhoneLookupContactRepository(private val context: Context) : ContactReposi
 
     override fun isKnown(phoneNumber: String): Boolean {
         if (phoneNumber.isBlank()) return false
+        for (candidate in PhoneNumberVariants.expand(phoneNumber)) {
+            if (lookupOne(candidate)) return true
+        }
+        return false
+    }
+
+    private fun lookupOne(phoneNumber: String): Boolean {
         val uri = Uri.withAppendedPath(
             ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
             Uri.encode(phoneNumber)

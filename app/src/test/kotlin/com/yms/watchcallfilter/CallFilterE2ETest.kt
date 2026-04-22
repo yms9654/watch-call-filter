@@ -19,8 +19,9 @@ import org.robolectric.RobolectricTestRunner
 class CallFilterE2ETest {
 
     private class InMemoryContacts(numbers: Collection<String>) : ContactRepository {
-        private val set = numbers.toSet()
-        override fun isKnown(phoneNumber: String): Boolean = phoneNumber in set
+        private val set = numbers.flatMap { PhoneNumberVariants.expand(it) }.toSet()
+        override fun isKnown(phoneNumber: String): Boolean =
+            PhoneNumberVariants.expand(phoneNumber).any { it in set }
     }
 
     private data class InMemorySettings(
@@ -153,7 +154,27 @@ class CallFilterE2ETest {
         assertThat(response.disallowCall).isTrue()
     }
 
-    // --- Scenario 6: contact saved with spacing variants -------------------
+    // --- Scenario 6: kr cross-format (saved local, call international) ----
+
+    @Test
+    fun `kr contact saved as local is allowed when called from international`() {
+        val response = pipeline(
+            handle = Uri.parse("tel:+821012345678"),
+            contacts = listOf("01012345678")
+        )
+        assertThat(response.disallowCall).isFalse()
+    }
+
+    @Test
+    fun `kr contact saved as international is allowed when called from local`() {
+        val response = pipeline(
+            handle = Uri.parse("tel:010-1234-5678"),
+            contacts = listOf("+821012345678")
+        )
+        assertThat(response.disallowCall).isFalse()
+    }
+
+    // --- Scenario 7: contact saved with spacing variants -------------------
 
     @Test
     fun `contact lookup is format-insensitive`() {

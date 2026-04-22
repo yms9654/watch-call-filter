@@ -57,6 +57,18 @@ class PhoneLookupContactRepositoryTest {
         assertThat(repository.isKnown("+821012345678")).isTrue()
     }
 
+    @Test
+    fun `matches kr local saved contact when called with international format`() {
+        provider.addContact("01012345678")
+        assertThat(repository.isKnown("+821012345678")).isTrue()
+    }
+
+    @Test
+    fun `matches kr international saved contact when called with local format`() {
+        provider.addContact("+821012345678")
+        assertThat(repository.isKnown("01012345678")).isTrue()
+    }
+
     class FakePhoneLookupProvider : ContentProvider() {
 
         private val numbers = mutableSetOf<String>()
