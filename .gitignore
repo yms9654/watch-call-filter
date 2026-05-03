@@ -19,3 +19,12 @@ release/
 .kotlin/
 *.log
 *.hprof
+
+# Firebase
+.firebase/
+*-debug.log
+
+# Node / web
+node_modules/
+web/out/
+web/dist/

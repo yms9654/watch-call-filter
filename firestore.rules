@@ -1,0 +1,44 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // pairing codes: any signed-in client may read/delete a code
+    // (web claims the code; watch reads it during pairing handshake).
+    // Codes are short-lived and contain only watchId.
+    match /pairingCodes/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['watchId', 'createdAt', 'expiresAt'])
+        && request.resource.data.watchId is string;
+      allow delete: if request.auth != null;
+      allow update: if false;
+    }
+
+    // each user only sees their own subtree
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /watches/{watchId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+
+        match /allowlist/{entryId} {
+          // owner: full access from web
+          // watch (anonymous auth): read-only IF the watchId field on the
+          // watch's claim matches the path watchId.
+          allow read: if request.auth != null
+            && (request.auth.uid == uid
+                || request.auth.token.watchId == watchId);
+          allow write: if request.auth != null && request.auth.uid == uid;
+        }
+
+        match /blockLog/{entryId} {
+          allow read: if request.auth != null && request.auth.uid == uid;
+          // watch may append its own block events
+          allow create: if request.auth != null
+            && request.auth.token.watchId == watchId;
+        }
+      }
+    }
+  }
+}
