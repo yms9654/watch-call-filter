@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { AllowlistEntry, Watch } from '../lib/types';
+import type { AllowlistEntry, BlockLogEntry, Watch } from '../lib/types';
 import {
-  addAllowlistEntry, deleteAllowlistEntry, getWatch, listAllowlist,
+  addAllowlistEntry, deleteAllowlistEntry, getWatch, listAllowlist, listBlockLog,
 } from '../lib/firestore';
 import { formatKr, toE164Kr } from '../lib/phone';
 
@@ -10,6 +10,7 @@ interface Props { uid: string; watchId: string }
 export function WatchPage({ watchId }: Props) {
   const [watch, setWatch] = useState<Watch | null>(null);
   const [entries, setEntries] = useState<AllowlistEntry[] | null>(null);
+  const [blocks, setBlocks] = useState<BlockLogEntry[] | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -18,11 +19,17 @@ export function WatchPage({ watchId }: Props) {
   useEffect(() => {
     getWatch(watchId).then(setWatch).catch(console.error);
     reload();
+    reloadBlocks();
   }, [watchId]);
 
   const reload = () => {
     setEntries(null);
     listAllowlist(watchId).then(setEntries).catch((e) => setError(e.message));
+  };
+
+  const reloadBlocks = () => {
+    setBlocks(null);
+    listBlockLog(watchId).then(setBlocks).catch((e) => setError(e.message));
   };
 
   const onAdd = async () => {
@@ -99,6 +106,45 @@ export function WatchPage({ watchId }: Props) {
           ))}
         </ul>
       </section>
+
+      <section>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="font-semibold">차단 기록</h2>
+          <button
+            onClick={reloadBlocks}
+            className="text-xs text-slate-500 hover:text-slate-900"
+          >새로고침</button>
+        </div>
+        {blocks === null && <p className="text-sm text-slate-500">불러오는 중…</p>}
+        {blocks?.length === 0 && (
+          <p className="text-sm text-slate-500 rounded-2xl bg-white border border-slate-200 p-5">
+            차단된 통화가 없습니다.
+          </p>
+        )}
+        <ul className="space-y-2">
+          {blocks?.map((b) => (
+            <li key={b.id} className="rounded-xl bg-white border border-slate-200 p-4 flex items-center justify-between">
+              <div>
+                <div className="font-medium font-mono">
+                  {b.e164 ? formatKr(b.e164) : <span className="italic text-slate-500">비공개 번호</span>}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {b.reason === 'private_number' ? '비공개 발신' : '주소록 미등록'}
+                </div>
+              </div>
+              <div className="text-xs text-slate-500">{formatTime(b.blockedAt)}</div>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
+}
+
+function formatTime(ms: number): string {
+  const d = new Date(ms);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }

@@ -1,9 +1,9 @@
 import {
   collection, doc, getDoc, getDocs, deleteDoc, setDoc, addDoc,
-  query, where, orderBy, serverTimestamp, Timestamp, runTransaction,
+  query, where, orderBy, limit as fsLimit, serverTimestamp, Timestamp, runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { AllowlistEntry, Watch } from './types';
+import type { AllowlistEntry, BlockLogEntry, BlockReason, Watch } from './types';
 
 function tsToMillis(t: unknown): number {
   if (t instanceof Timestamp) return t.toMillis();
@@ -91,5 +91,21 @@ export async function renameWatch(watchId: string, label: string): Promise<void>
 export async function deleteWatch(watchId: string): Promise<void> {
   const entries = await getDocs(collection(db, 'watches', watchId, 'allowlist'));
   await Promise.all(entries.docs.map((d) => deleteDoc(d.ref)));
+  const logs = await getDocs(collection(db, 'watches', watchId, 'blockLog'));
+  await Promise.all(logs.docs.map((d) => deleteDoc(d.ref)));
   await deleteDoc(doc(db, 'watches', watchId));
+}
+
+export async function listBlockLog(watchId: string, limit = 50): Promise<BlockLogEntry[]> {
+  const snap = await getDocs(query(
+    collection(db, 'watches', watchId, 'blockLog'),
+    orderBy('blockedAt', 'desc'),
+    fsLimit(limit),
+  ));
+  return snap.docs.map((d) => ({
+    id: d.id,
+    e164: (d.data().e164 as string | null) ?? null,
+    reason: (d.data().reason as BlockReason) ?? 'unknown_number',
+    blockedAt: tsToMillis(d.data().blockedAt),
+  }));
 }

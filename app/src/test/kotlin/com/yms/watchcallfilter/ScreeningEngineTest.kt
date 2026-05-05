@@ -20,26 +20,29 @@ class ScreeningEngineTest {
             contacts = FakeContacts(setOf("01012345678")),
             settings = FakeSettings()
         )
-        assertThat(engine.decide("010-1234-5678")).isEqualTo(Decision.ALLOW)
+        assertThat(engine.decide("010-1234-5678")).isEqualTo(Decision.Allow)
     }
 
     @Test
-    fun `unknown number is blocked`() {
+    fun `unknown number is blocked with UNKNOWN_NUMBER reason`() {
         val engine = ScreeningEngine(
             contacts = FakeContacts(setOf("01012345678")),
             settings = FakeSettings()
         )
-        assertThat(engine.decide("010-9999-8888")).isEqualTo(Decision.BLOCK)
+        assertThat(engine.decide("010-9999-8888"))
+            .isEqualTo(Decision.Block(BlockReason.UNKNOWN_NUMBER))
     }
 
     @Test
-    fun `private number is blocked when blockPrivate is true`() {
+    fun `private number is blocked with PRIVATE_NUMBER reason when blockPrivate is true`() {
         val engine = ScreeningEngine(
             contacts = FakeContacts(emptySet()),
             settings = FakeSettings(blockPrivate = true)
         )
-        assertThat(engine.decide(null)).isEqualTo(Decision.BLOCK)
-        assertThat(engine.decide("")).isEqualTo(Decision.BLOCK)
+        assertThat(engine.decide(null))
+            .isEqualTo(Decision.Block(BlockReason.PRIVATE_NUMBER))
+        assertThat(engine.decide(""))
+            .isEqualTo(Decision.Block(BlockReason.PRIVATE_NUMBER))
     }
 
     @Test
@@ -48,8 +51,8 @@ class ScreeningEngineTest {
             contacts = FakeContacts(emptySet()),
             settings = FakeSettings(blockPrivate = false)
         )
-        assertThat(engine.decide(null)).isEqualTo(Decision.ALLOW)
-        assertThat(engine.decide("")).isEqualTo(Decision.ALLOW)
+        assertThat(engine.decide(null)).isEqualTo(Decision.Allow)
+        assertThat(engine.decide("")).isEqualTo(Decision.Allow)
     }
 
     @Test
@@ -58,8 +61,8 @@ class ScreeningEngineTest {
             contacts = FakeContacts(emptySet()),
             settings = FakeSettings(enabled = false, blockPrivate = true)
         )
-        assertThat(engine.decide("010-9999-8888")).isEqualTo(Decision.ALLOW)
-        assertThat(engine.decide(null)).isEqualTo(Decision.ALLOW)
+        assertThat(engine.decide("010-9999-8888")).isEqualTo(Decision.Allow)
+        assertThat(engine.decide(null)).isEqualTo(Decision.Allow)
     }
 
     @Test
@@ -68,7 +71,7 @@ class ScreeningEngineTest {
             contacts = FakeContacts(setOf("+821012345678")),
             settings = FakeSettings()
         )
-        assertThat(engine.decide("+82 10-1234-5678")).isEqualTo(Decision.ALLOW)
-        assertThat(engine.decide("+82  (10) 1234 5678")).isEqualTo(Decision.ALLOW)
+        assertThat(engine.decide("+82 10-1234-5678")).isEqualTo(Decision.Allow)
+        assertThat(engine.decide("+82  (10) 1234 5678")).isEqualTo(Decision.Allow)
     }
 }
