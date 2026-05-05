@@ -13,8 +13,8 @@ android {
         applicationId = "com.yms.watchcallfilter"
         minSdk = 30
         targetSdk = 34
-        versionCode = 2
-        versionName = "0.3.0"
+        versionCode = 3
+        versionName = "0.4.0"
 
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
