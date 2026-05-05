@@ -7,7 +7,7 @@ import { formatKr, toE164Kr } from '../lib/phone';
 
 interface Props { uid: string; watchId: string }
 
-export function WatchPage({ uid, watchId }: Props) {
+export function WatchPage({ watchId }: Props) {
   const [watch, setWatch] = useState<Watch | null>(null);
   const [entries, setEntries] = useState<AllowlistEntry[] | null>(null);
   const [name, setName] = useState('');
@@ -16,13 +16,13 @@ export function WatchPage({ uid, watchId }: Props) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getWatch(uid, watchId).then(setWatch).catch(console.error);
+    getWatch(watchId).then(setWatch).catch(console.error);
     reload();
-  }, [uid, watchId]);
+  }, [watchId]);
 
   const reload = () => {
     setEntries(null);
-    listAllowlist(uid, watchId).then(setEntries).catch((e) => setError(e.message));
+    listAllowlist(watchId).then(setEntries).catch((e) => setError(e.message));
   };
 
   const onAdd = async () => {
@@ -32,7 +32,7 @@ export function WatchPage({ uid, watchId }: Props) {
     if (!name.trim()) { setError('이름을 입력해주세요'); return; }
     setBusy(true);
     try {
-      await addAllowlistEntry(uid, watchId, name.trim(), e164);
+      await addAllowlistEntry(watchId, name.trim(), e164);
       setName(''); setPhone('');
       reload();
     } catch (e) { setError((e as Error).message); }
@@ -41,7 +41,7 @@ export function WatchPage({ uid, watchId }: Props) {
 
   const onDelete = async (entry: AllowlistEntry) => {
     if (!window.confirm(`"${entry.name}" 항목을 삭제할까요?`)) return;
-    await deleteAllowlistEntry(uid, watchId, entry.id);
+    await deleteAllowlistEntry(watchId, entry.id);
     reload();
   };
 

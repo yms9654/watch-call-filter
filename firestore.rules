@@ -3,41 +3,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // pairing codes: any signed-in client may read/delete a code
-    // (web claims the code; watch reads it during pairing handshake).
-    // Codes are short-lived and contain only watchId.
+    // pairing handshake doc — written by watch, claimed/deleted by parent web.
+    // Holds the watch's anonymous auth uid so the parent's claim can pin
+    // future read access to that uid.
     match /pairingCodes/{code} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && request.resource.data.keys().hasOnly(['watchId', 'createdAt', 'expiresAt'])
-        && request.resource.data.watchId is string;
+        && request.resource.data.keys().hasOnly(['watchId', 'watchAuthUid', 'createdAt', 'expiresAt'])
+        && request.resource.data.watchId is string
+        && request.resource.data.watchAuthUid == request.auth.uid;
       allow delete: if request.auth != null;
       allow update: if false;
     }
 
-    // each user only sees their own subtree
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    // global watch registry. Two principals get read access:
+    //   - the parent (ownerUid)
+    //   - the specific watch instance (watchAuthUid set at pairing time)
+    match /watches/{watchId} {
+      // single-doc read open to any authed client so the watch can
+      // poll its own pairing state before it knows its owner.
+      // The contained allowlist subcollection is still owner-scoped.
+      allow get: if request.auth != null;
+      allow list: if request.auth != null
+        && resource.data.ownerUid == request.auth.uid;
+      // creation only happens via the web claim flow
+      allow create: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['ownerUid', 'watchAuthUid', 'label', 'pairedAt']);
+      allow update, delete: if request.auth != null
+        && resource.data.ownerUid == request.auth.uid;
 
-      match /watches/{watchId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+      match /allowlist/{entryId} {
+        allow read: if request.auth != null
+          && (get(/databases/$(database)/documents/watches/$(watchId)).data.ownerUid == request.auth.uid
+              || get(/databases/$(database)/documents/watches/$(watchId)).data.watchAuthUid == request.auth.uid);
+        allow write: if request.auth != null
+          && get(/databases/$(database)/documents/watches/$(watchId)).data.ownerUid == request.auth.uid;
+      }
 
-        match /allowlist/{entryId} {
-          // owner: full access from web
-          // watch (anonymous auth): read-only IF the watchId field on the
-          // watch's claim matches the path watchId.
-          allow read: if request.auth != null
-            && (request.auth.uid == uid
-                || request.auth.token.watchId == watchId);
-          allow write: if request.auth != null && request.auth.uid == uid;
-        }
-
-        match /blockLog/{entryId} {
-          allow read: if request.auth != null && request.auth.uid == uid;
-          // watch may append its own block events
-          allow create: if request.auth != null
-            && request.auth.token.watchId == watchId;
-        }
+      match /blockLog/{entryId} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/watches/$(watchId)).data.ownerUid == request.auth.uid;
+        // watch appends its own block events
+        allow create: if request.auth != null
+          && get(/databases/$(database)/documents/watches/$(watchId)).data.watchAuthUid == request.auth.uid;
       }
     }
   }

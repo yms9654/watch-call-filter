@@ -9,4 +9,7 @@
     <string name="status_ready">준비됨</string>
     <string name="status_need_role">통화 선별 역할 필요</string>
     <string name="status_need_contacts">연락처 권한 필요</string>
+    <string name="pairing_code_label">페어링 코드: %1$s</string>
+    <string name="paired_label">웹과 연동됨</string>
+    <string name="pairing_error">페어링 오류: %1$s</string>
 </resources>

@@ -3,6 +3,9 @@ package com.yms.watchcallfilter
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import android.util.Log
+import com.yms.watchcallfilter.sync.AppDatabase
+import com.yms.watchcallfilter.sync.RoomAllowlistRepository
+import com.yms.watchcallfilter.sync.UnionContactRepository
 
 class CallFilterService : CallScreeningService() {
 
@@ -10,8 +13,12 @@ class CallFilterService : CallScreeningService() {
 
     override fun onCreate() {
         super.onCreate()
+        val deviceContacts = PhoneLookupContactRepository(applicationContext)
+        val remoteContacts = RoomAllowlistRepository(
+            AppDatabase.get(applicationContext).allowlistDao()
+        )
         engine = ScreeningEngine(
-            contacts = PhoneLookupContactRepository(applicationContext),
+            contacts = UnionContactRepository(listOf(deviceContacts, remoteContacts)),
             settings = SharedPrefScreeningSettings(applicationContext)
         )
     }

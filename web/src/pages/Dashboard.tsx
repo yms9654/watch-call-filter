@@ -31,13 +31,13 @@ export function Dashboard({ uid }: Props) {
   const onRename = async (w: Watch) => {
     const next = window.prompt('새 이름', w.label);
     if (!next || next === w.label) return;
-    await renameWatch(uid, w.id, next.trim());
+    await renameWatch(w.id, next.trim());
     reload();
   };
 
   const onDelete = async (w: Watch) => {
     if (!window.confirm(`"${w.label}" 워치 등록을 해제할까요?\n허용 번호도 함께 삭제됩니다.`)) return;
-    await deleteWatch(uid, w.id);
+    await deleteWatch(w.id);
     reload();
   };
 

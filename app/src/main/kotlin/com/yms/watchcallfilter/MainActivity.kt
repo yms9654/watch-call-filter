@@ -7,17 +7,31 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.work.WorkManager
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import com.yms.watchcallfilter.identity.WatchIdentity
+import com.yms.watchcallfilter.pairing.PairingClient
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
-class MainActivity : Activity() {
+class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     private lateinit var settings: SharedPrefScreeningSettings
     private lateinit var statusText: TextView
+    private lateinit var pairingText: TextView
+    private val pairingClient = PairingClient()
+    private var pairingPollJob: kotlinx.coroutines.Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,12 +40,21 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
+            gravity = Gravity.CENTER_HORIZONTAL
         }
 
         statusText = TextView(this).apply {
             text = getString(R.string.status_ready)
+            gravity = Gravity.CENTER
         }
         root.addView(statusText)
+
+        pairingText = TextView(this).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+            setPadding(0, 24, 0, 24)
+            gravity = Gravity.CENTER
+        }
+        root.addView(pairingText)
 
         val enableSwitch = Switch(this).apply {
             text = getString(R.string.toggle_enabled)
@@ -64,6 +87,13 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         updateStatus()
+        startPairingFlow()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        pairingPollJob?.cancel()
+        pairingPollJob = null
     }
 
     private fun ensurePermissions() {
@@ -109,6 +139,49 @@ class MainActivity : Activity() {
             else -> getString(R.string.status_ready)
         }
     }
+
+    private fun startPairingFlow() {
+        if (pairingPollJob?.isActive == true) return
+        pairingPollJob = lifecycleScope.launch {
+            val watchId = WatchIdentity(this@MainActivity).watchId
+            val auth = Firebase.auth
+            try {
+                if (auth.currentUser == null) {
+                    auth.signInAnonymously().await()
+                }
+                val authUid = auth.currentUser?.uid ?: return@launch
+
+                if (pairingClient.isPaired(watchId)) {
+                    pairingText.text = getString(R.string.paired_label)
+                    triggerSyncOnce()
+                    return@launch
+                }
+
+                val code = pairingClient.publishPairingCode(watchId, authUid)
+                pairingText.text = getString(R.string.pairing_code_label, formatCode(code))
+
+                while (true) {
+                    delay(5_000)
+                    if (pairingClient.isPaired(watchId)) {
+                        pairingText.text = getString(R.string.paired_label)
+                        triggerSyncOnce()
+                        break
+                    }
+                }
+            } catch (t: Throwable) {
+                pairingText.text = getString(R.string.pairing_error, t.message ?: "")
+            }
+        }
+    }
+
+    private fun triggerSyncOnce() {
+        val request = androidx.work.OneTimeWorkRequestBuilder<
+            com.yms.watchcallfilter.sync.AllowlistSyncWorker>().build()
+        WorkManager.getInstance(this).enqueue(request)
+    }
+
+    private fun formatCode(code: String): String =
+        code.chunked(3).joinToString(" ")
 
     override fun onRequestPermissionsResult(
         requestCode: Int,

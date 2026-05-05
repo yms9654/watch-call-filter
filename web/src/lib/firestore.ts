@@ -1,6 +1,6 @@
 import {
   collection, doc, getDoc, getDocs, deleteDoc, setDoc, addDoc,
-  query, orderBy, serverTimestamp, Timestamp, runTransaction,
+  query, where, orderBy, serverTimestamp, Timestamp, runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { AllowlistEntry, Watch } from './types';
@@ -12,7 +12,10 @@ function tsToMillis(t: unknown): number {
 }
 
 export async function listWatches(uid: string): Promise<Watch[]> {
-  const snap = await getDocs(collection(db, 'users', uid, 'watches'));
+  const snap = await getDocs(query(
+    collection(db, 'watches'),
+    where('ownerUid', '==', uid),
+  ));
   return snap.docs.map((d) => ({
     id: d.id,
     label: (d.data().label as string) ?? d.id.slice(0, 8),
@@ -20,9 +23,19 @@ export async function listWatches(uid: string): Promise<Watch[]> {
   }));
 }
 
-export async function listAllowlist(uid: string, watchId: string): Promise<AllowlistEntry[]> {
+export async function getWatch(watchId: string): Promise<Watch | null> {
+  const snap = await getDoc(doc(db, 'watches', watchId));
+  if (!snap.exists()) return null;
+  return {
+    id: snap.id,
+    label: (snap.data().label as string) ?? snap.id.slice(0, 8),
+    pairedAt: tsToMillis(snap.data().pairedAt),
+  };
+}
+
+export async function listAllowlist(watchId: string): Promise<AllowlistEntry[]> {
   const snap = await getDocs(query(
-    collection(db, 'users', uid, 'watches', watchId, 'allowlist'),
+    collection(db, 'watches', watchId, 'allowlist'),
     orderBy('name'),
   ));
   return snap.docs.map((d) => ({
@@ -34,17 +47,17 @@ export async function listAllowlist(uid: string, watchId: string): Promise<Allow
 }
 
 export async function addAllowlistEntry(
-  uid: string, watchId: string, name: string, e164: string,
+  watchId: string, name: string, e164: string,
 ): Promise<void> {
-  await addDoc(collection(db, 'users', uid, 'watches', watchId, 'allowlist'), {
+  await addDoc(collection(db, 'watches', watchId, 'allowlist'), {
     name, e164, addedAt: serverTimestamp(),
   });
 }
 
 export async function deleteAllowlistEntry(
-  uid: string, watchId: string, entryId: string,
+  watchId: string, entryId: string,
 ): Promise<void> {
-  await deleteDoc(doc(db, 'users', uid, 'watches', watchId, 'allowlist', entryId));
+  await deleteDoc(doc(db, 'watches', watchId, 'allowlist', entryId));
 }
 
 export async function claimPairingCode(uid: string, code: string, label: string): Promise<string> {
@@ -56,33 +69,27 @@ export async function claimPairingCode(uid: string, code: string, label: string)
     const expiresAt = tsToMillis(data.expiresAt);
     if (expiresAt < Date.now()) throw new Error('페어링 코드가 만료되었습니다');
     const watchId = data.watchId as string;
-    const watchRef = doc(db, 'users', uid, 'watches', watchId);
+    const watchAuthUid = data.watchAuthUid as string;
+    const watchRef = doc(db, 'watches', watchId);
     const existing = await tx.get(watchRef);
     if (existing.exists()) throw new Error('이미 등록된 워치입니다');
-    tx.set(watchRef, { label, pairedAt: serverTimestamp(), watchId });
+    tx.set(watchRef, {
+      ownerUid: uid,
+      watchAuthUid,
+      label,
+      pairedAt: serverTimestamp(),
+    });
     tx.delete(codeRef);
     return watchId;
   });
 }
 
-export async function renameWatch(uid: string, watchId: string, label: string): Promise<void> {
-  const ref = doc(db, 'users', uid, 'watches', watchId);
-  await setDoc(ref, { label }, { merge: true });
+export async function renameWatch(watchId: string, label: string): Promise<void> {
+  await setDoc(doc(db, 'watches', watchId), { label }, { merge: true });
 }
 
-export async function deleteWatch(uid: string, watchId: string): Promise<void> {
-  // Best-effort: delete all allowlist entries first
-  const entries = await getDocs(collection(db, 'users', uid, 'watches', watchId, 'allowlist'));
+export async function deleteWatch(watchId: string): Promise<void> {
+  const entries = await getDocs(collection(db, 'watches', watchId, 'allowlist'));
   await Promise.all(entries.docs.map((d) => deleteDoc(d.ref)));
-  await deleteDoc(doc(db, 'users', uid, 'watches', watchId));
-}
-
-export async function getWatch(uid: string, watchId: string): Promise<Watch | null> {
-  const snap = await getDoc(doc(db, 'users', uid, 'watches', watchId));
-  if (!snap.exists()) return null;
-  return {
-    id: snap.id,
-    label: (snap.data().label as string) ?? snap.id.slice(0, 8),
-    pairedAt: tsToMillis(snap.data().pairedAt),
-  };
+  await deleteDoc(doc(db, 'watches', watchId));
 }

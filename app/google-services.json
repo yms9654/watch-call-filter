@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "774210837405",
+    "project_id": "watch-call-filter",
+    "storage_bucket": "watch-call-filter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774210837405:android:224addb7a6fdeffdfeed74",
+        "android_client_info": {
+          "package_name": "com.yms.watchcallfilter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "774210837405-fpa8cu2pifbkl4vfq2jnp506pg6469sa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyxna-XqcTgwyq41FHqzWvlj7jAsBWdB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "774210837405-fpa8cu2pifbkl4vfq2jnp506pg6469sa.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
